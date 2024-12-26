@@ -7,7 +7,10 @@ import pkg from 'pg'
 import { generateResponse } from './script.js'
 
 dotenv.config()
-
+app.use(cors({
+  origin: ['https://quiz-app-kappa-peach.vercel.app', 'http://localhost:3000'],
+  credentials: true
+}));
 const app = express()
 const PORT = process.env.PORT || 3000
 
@@ -18,10 +21,7 @@ const pool = new Pool({
 })
 
 app.use(express.json())
-app.use(cors({
-  origin: ['https://quiz-app-kappa-peach.vercel.app', 'http://localhost:3000'],
-  credentials: true
-}));
+
 
 // Middleware to verify JWT token
 const authenticateToken = (req, res, next) => {
