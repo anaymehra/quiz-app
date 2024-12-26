@@ -11,7 +11,7 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 3000
 app.use(cors({
-  origin: ['https://quiz-app-kappa-peach.vercel.app', 'http://localhost:3000'],
+  origin: ['https://quiz-app-kappa-peach.vercel.app','https://quiz-aua9jskcb-anaymehras-projects.vercel.app', 'http://localhost:3000'],
   credentials: true
 }));
 // PostgreSQL connection
