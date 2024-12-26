@@ -2,10 +2,10 @@
 
 import React, { useState } from 'react'
 import { Eye, EyeOff, Lock, Mail, User } from 'lucide-react'
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'
 
-export default function AuthForm({ mode = 'login' }) {
-    const navigate = useNavigate();
+export default function AuthForm({ mode = 'login', setUser }) {
+  const navigate = useNavigate()
   const [isLogin, setIsLogin] = useState(mode === 'login')
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
@@ -37,19 +37,21 @@ export default function AuthForm({ mode = 'login' }) {
         throw new Error(data.message || 'Authentication failed')
       }
 
-      // Store the token and redirect
       localStorage.setItem('authToken', data.token)
-    //   window.location.href = '/dashboard'
-    navigate('/');
+      if (setUser) {
+        setUser(data.user)
+      }
+      navigate('/')
     } catch (err) {
-      setError(err.message)
+      console.error('Authentication error:', err)
+      setError(err.message || 'An unexpected error occurred. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-white to-purple-100 p-4">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-lg shadow-xl p-8">
           <h2 className="text-2xl font-bold text-center text-gray-800 mb-8">
@@ -60,7 +62,7 @@ export default function AuthForm({ mode = 'login' }) {
             {!isLogin && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700" htmlFor="username">
-                  Name
+                  Username
                 </label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -70,7 +72,7 @@ export default function AuthForm({ mode = 'login' }) {
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter your full name"
+                    placeholder="Enter your username"
                     required
                   />
                 </div>
