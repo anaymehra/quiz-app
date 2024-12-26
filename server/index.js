@@ -7,13 +7,13 @@ import pkg from 'pg'
 import { generateResponse } from './script.js'
 
 dotenv.config()
+
+const app = express()
+const PORT = process.env.PORT || 3000
 app.use(cors({
   origin: ['https://quiz-app-kappa-peach.vercel.app', 'http://localhost:3000'],
   credentials: true
 }));
-const app = express()
-const PORT = process.env.PORT || 3000
-
 // PostgreSQL connection
 const { Pool } = pkg
 const pool = new Pool({
