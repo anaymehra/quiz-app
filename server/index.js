@@ -19,7 +19,7 @@ const pool = new Pool({
 
 app.use(express.json())
 app.use(cors({
-  origin: ['https://quiz-app-wheat-alpha.vercel.app', 'http://localhost:3000'],
+  origin: ['https://quiz-app-kappa-peach.vercel.app', 'http://localhost:3000'],
   credentials: true
 }));
 
