@@ -1,9 +1,0 @@
-{
-    "rewrites": [
-      {
-        "source": "/api/:path*",
-        "destination": "https://quiz-app-os4m.onrender.com/api/:path*"
-      }
-    ]
-  }
-  

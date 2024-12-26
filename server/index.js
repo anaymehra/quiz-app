@@ -18,7 +18,10 @@ const pool = new Pool({
 })
 
 app.use(express.json())
-app.use(cors())
+app.use(cors({
+  origin: ['https://quiz-app-wheat-alpha.vercel.app', 'http://localhost:3000'],
+  credentials: true
+}));
 
 // Middleware to verify JWT token
 const authenticateToken = (req, res, next) => {

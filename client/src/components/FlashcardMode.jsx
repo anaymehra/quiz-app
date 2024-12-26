@@ -13,6 +13,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { CODING_CONCEPTS } from "../codingConcepts.js";
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 export default function FlashcardMode() {
   const location = useLocation();
@@ -38,7 +39,7 @@ export default function FlashcardMode() {
     try {
       const token = localStorage.getItem("authToken");
       const response = await axios.post(
-        "/api/flashcards/generate",
+        `${API_URL}/flashcards/generate`,
         {
           topic: topicToUse,
           count: 10,

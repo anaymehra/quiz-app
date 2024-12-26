@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { Eye, EyeOff, Lock, Mail, User } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 export default function AuthForm({ mode = 'login', setUser }) {
   const navigate = useNavigate()
@@ -22,13 +23,14 @@ export default function AuthForm({ mode = 'login', setUser }) {
     setLoading(true)
 
     try {
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register'
+      const endpoint = isLogin ? `${API_URL}/auth/login` : `${API_URL}/auth/register`
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
+        credentials: 'include'
       })
 
       const data = await response.json()
