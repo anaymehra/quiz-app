@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Trophy, Target, Clock, ArrowLeft, Brain, Star, Filter } from 'lucide-react'
 import { motion } from 'framer-motion'
-import axios from 'axios'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 export default function Statistics() {
   const [stats, setStats] = useState({
@@ -25,7 +25,7 @@ export default function Statistics() {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('authToken')
-      const response = await fetch('/api/quiz/history', {
+      const response = await fetch(`${API_URL}/quiz/history`, {
         headers: {
           Authorization: `Bearer ${token}`
         }

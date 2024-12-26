@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { BarChart, Book, LogOut, ChevronLeft, User, Brain, Clock, Trophy, BookOpen, FlaskConical } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 export default function Sidebar() {
   const [open, setOpen] = useState(false)
@@ -27,7 +28,7 @@ export default function Sidebar() {
         }
 
         // Fetch quiz history
-        const historyResponse = await fetch('/api/quiz/history', {
+        const historyResponse = await fetch(`${API_URL}/quiz/history`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         
@@ -45,7 +46,7 @@ export default function Sidebar() {
         }
 
         // Fetch user data
-        const userResponse = await fetch('/api/auth/verify', {
+        const userResponse = await fetch(`${API_URL}/auth/verify`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         

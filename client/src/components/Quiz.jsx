@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, CheckCircle, XCircle, BookOpen, Award } from 'lucide-react'
 import axios from 'axios'
 import { motion, AnimatePresence } from 'framer-motion'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 export default function Quiz() {
   const location = useLocation()
@@ -65,7 +66,7 @@ export default function Quiz() {
     
     try {
       const token = localStorage.getItem('authToken')
-      await axios.post('/api/quiz/save-attempt', {
+      await axios.post(`${API_URL}/quiz/save-attempt`, {
         topic,
         difficulty,
         score,

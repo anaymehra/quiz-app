@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { Trophy, Medal, Award, Search, ArrowUp, ArrowDown, BookOpen } from 'lucide-react'
 import axios from 'axios'
-
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 export default function Leaderboard() {
   const [leaderboardData, setLeaderboardData] = useState([])
   const [loading, setLoading] = useState(true)
@@ -17,7 +17,7 @@ export default function Leaderboard() {
   const fetchLeaderboardData = async () => {
     try {
       const token = localStorage.getItem('authToken')
-      const response = await axios.get('/api/leaderboard', {
+      const response = await axios.get(`${API_URL}/leaderboard`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       
