@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { Eye, EyeOff, Lock, Mail, User } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-const API_URL = import.meta.env.VITE_API_URL || 'http://susu'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 export default function AuthForm({ mode = 'login', setUser }) {
   const navigate = useNavigate()
