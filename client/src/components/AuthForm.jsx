@@ -23,7 +23,7 @@ export default function AuthForm({ mode = 'login', setUser }) {
     setLoading(true)
 
     try {
-      const endpoint = isLogin ? `${API_URL}/api/auth/login` : `${API_URL}/api/auth/register`
+      const endpoint = isLogin ? `${API_URL}/auth/login` : `${API_URL}/auth/register`
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
