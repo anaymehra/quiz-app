@@ -42,7 +42,7 @@ const authenticateToken = (req, res, next) => {
 }
 
 // Auth routes
-app.post('/api/auth/register', async (req, res) => {
+app.post('/auth/register', async (req, res) => {
   try {
     const { username, email, password } = req.body
     const hashedPassword = await bcrypt.hash(password, 10)
@@ -60,7 +60,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 })
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body
     console.log('Login attempt for email:', email)
@@ -90,7 +90,7 @@ app.post('/api/auth/login', async (req, res) => {
 })
 
 // New route for token verification
-app.get('/api/auth/verify', authenticateToken, async (req, res) => {
+app.get('/auth/verify', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query('SELECT id, username, email FROM users WHERE id = $1', [req.user.userId])
     if (result.rows.length === 0) {
@@ -104,7 +104,7 @@ app.get('/api/auth/verify', authenticateToken, async (req, res) => {
 })
 
 // Protected quiz routes
-app.post('/api/generate', authenticateToken, async (req, res) => {
+app.post('/generate', authenticateToken, async (req, res) => {
   const prompt = req.body.prompt
   try {
     const response = await generateResponse(prompt)
@@ -115,7 +115,7 @@ app.post('/api/generate', authenticateToken, async (req, res) => {
   }
 })
 
-app.post('/api/quiz/save-attempt', authenticateToken, async (req, res) => {
+app.post('/quiz/save-attempt', authenticateToken, async (req, res) => {
   try {
     const { topic, difficulty, score, totalQuestions, answers } = req.body
     const userId = req.user.userId
@@ -152,7 +152,7 @@ app.post('/api/quiz/save-attempt', authenticateToken, async (req, res) => {
   }
 })
 
-app.get('/api/quiz/history', authenticateToken, async (req, res) => {
+app.get('/quiz/history', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId
     const result = await pool.query(
@@ -176,7 +176,7 @@ app.get('/api/quiz/history', authenticateToken, async (req, res) => {
 })
 
 // Route for leaderboard
-app.get('/api/leaderboard', authenticateToken, async (req, res) => {
+app.get('/leaderboard', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
@@ -212,7 +212,7 @@ app.get('/api/leaderboard', authenticateToken, async (req, res) => {
 })
 
 // Route for FlashCard generation
-app.post('/api/flashcards/generate', authenticateToken, async (req, res) => {
+app.post('/flashcards/generate', authenticateToken, async (req, res) => {
   const { topic } = req.body
   try {
     let promptTopic = topic

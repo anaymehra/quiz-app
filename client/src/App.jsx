@@ -11,6 +11,7 @@ import Leaderboard from './components/Leaderboard'
 import FlashcardMode from './components/FlashCardMode'
 import { Sparkles } from 'lucide-react'
 import { CODING_CONCEPTS } from './codingConcepts.js'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 const ProtectedRoute = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -21,7 +22,7 @@ const ProtectedRoute = ({ children }) => {
       const token = localStorage.getItem('authToken')
       if (token) {
         try {
-          await axios.get('/api/auth/verify', {
+          await axios.get(`${API_URL}/auth/verify`, {
             headers: { Authorization: `Bearer ${token}` }
           })
           setIsAuthenticated(true)
@@ -56,8 +57,6 @@ export default function App() {
     questionCount: 5
   })
   const [user, setUser] = useState(null)
-
-  const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
   useEffect(() => {
     // Reset form when navigating to home page
@@ -103,7 +102,7 @@ export default function App() {
 
     try {
       const token = localStorage.getItem('authToken')
-      const result = await axios.post(`${BASE_URL}/api/generate`, { prompt: promptText }, {
+      const result = await axios.post(`${API_URL}/generate`, { prompt: promptText }, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
