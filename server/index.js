@@ -69,7 +69,7 @@ app.post('/auth/login', async (req, res) => {
 
     if (result.rows.length === 0) {
       console.log('No user found with email:', email)
-      return res.status(401).json({ message: 'Invalid credentials' })
+      return res.status(401).json({ message: 'No user found with email: ',email })
     }
 
     const user = result.rows[0]
