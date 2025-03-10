@@ -131,30 +131,112 @@ app.post('/auth/google', async (req, res) => {
       const username = name || email.split('@')[0]; // Generate username from name or email
       
       try {
-        // Add user to database
-        const insertResult = await pool.query(
-          'INSERT INTO users (username, email, google_id, profile_picture, is_oauth_user) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, email, profile_picture',
-          [username, email, googleId, picture, true]
-        );
+        // Add user to database with error handling
+        console.log('Creating new user with Google auth:', { username, email, googleId });
         
+        // Check if users table has the expected columns
+        const tableInfo = await pool.query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'users'
+        `);
+        
+        const columns = tableInfo.rows.map(row => row.column_name);
+        console.log('Available columns in users table:', columns);
+        
+        // Create query based on available columns
+        let query = 'INSERT INTO users (username, email';
+        let valuesList = [username, email];
+        let placeholders = '$1, $2';
+        let index = 3;
+        
+        if (columns.includes('google_id')) {
+          query += ', google_id';
+          valuesList.push(googleId);
+          placeholders += `, $${index}`;
+          index++;
+        }
+        
+        if (columns.includes('profile_picture')) {
+          query += ', profile_picture';
+          valuesList.push(picture);
+          placeholders += `, $${index}`;
+          index++;
+        }
+        
+        if (columns.includes('is_oauth_user')) {
+          query += ', is_oauth_user';
+          valuesList.push(true);
+          placeholders += `, $${index}`;
+          index++;
+        }
+        
+        query += ') VALUES (' + placeholders + ') RETURNING id, username, email';
+        
+        if (columns.includes('profile_picture')) {
+          query += ', profile_picture';
+        }
+        
+        console.log('Executing query:', query);
+        
+        const insertResult = await pool.query(query, valuesList);
         user = insertResult.rows[0];
+        console.log('User created successfully:', user);
       } catch (dbError) {
         console.error('Database error during user creation:', dbError);
-        return res.status(500).json({ message: 'Error creating user account' });
+        
+        // Check if it's a duplicate key violation (user already exists)
+        if (dbError.code === '23505') { // PostgreSQL unique constraint violation code
+          // Try to fetch existing user again
+          const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+          if (existingUser.rows.length > 0) {
+            user = existingUser.rows[0];
+            console.log('Found existing user after constraint violation:', user);
+          } else {
+            return res.status(500).json({ message: 'Error creating user - email already exists but cannot retrieve user' });
+          }
+        } else {
+          return res.status(500).json({ 
+            message: 'Error creating user account',
+            details: dbError.message
+          });
+        }
       }
     } else {
       // Use existing user
       user = result.rows[0];
+      console.log('Using existing user from database:', user);
       
       // If user exists but doesn't have google_id (signed up with email before)
       if (!user.google_id) {
         try {
-          await pool.query(
-            'UPDATE users SET google_id = $1, profile_picture = $2, is_oauth_user = $3 WHERE id = $4',
-            [googleId, picture, true, user.id]
-          );
+          console.log('Updating existing user with Google info');
+          const updateFields = ['google_id = $1'];
+          const updateValues = [googleId];
+          let valueIndex = 2;
+          
+          if (user.profile_picture === null && picture) {
+            updateFields.push(`profile_picture = $${valueIndex}`);
+            updateValues.push(picture);
+            valueIndex++;
+          }
+          
+          updateFields.push(`is_oauth_user = $${valueIndex}`);
+          updateValues.push(true);
+          valueIndex++;
+          
+          updateValues.push(user.id);
+          
+          const updateQuery = `
+            UPDATE users 
+            SET ${updateFields.join(', ')} 
+            WHERE id = $${valueIndex-1}
+          `;
+          
+          console.log('Executing update query:', updateQuery);
+          await pool.query(updateQuery, updateValues);
         } catch (dbError) {
-          console.error('Database error updating user:', dbError);
+          console.error('Database error updating user with Google info:', dbError);
           // Continue anyway since we have the user
         }
       }
@@ -176,7 +258,10 @@ app.post('/auth/google', async (req, res) => {
     
   } catch (error) {
     console.error('Google auth error:', error);
-    res.status(500).json({ message: 'Error with Google authentication' });
+    res.status(500).json({ 
+      message: 'Error with Google authentication', 
+      details: error.message 
+    });
   }
 });
 

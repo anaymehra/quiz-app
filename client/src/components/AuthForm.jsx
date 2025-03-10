@@ -20,9 +20,56 @@ export default function AuthForm({ mode = 'login', setUser }) {
 
   // Initialize Google OAuth on component mount
   useEffect(() => {
+    // Load Google Identity Services script
+    const loadGoogleScript = () => {
+      // Check if script is already loaded
+      if (document.getElementById('google-signin-script')) {
+        initializeGoogleSignIn();
+        return;
+      }
+      
+      const script = document.createElement('script')
+      script.id = 'google-signin-script'
+      script.src = 'https://accounts.google.com/gsi/client'
+      script.async = true
+      script.defer = true
+      script.onload = initializeGoogleSignIn
+      document.body.appendChild(script)
+    }
+
+    // Initialize Google Sign-In
+    const initializeGoogleSignIn = () => {
+      if (window.google) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+            callback: handleGoogleCallback,
+            auto_select: false,
+            cancel_on_tap_outside: true,
+          })
+          
+          // Display the Google Sign-In button
+          window.google.accounts.id.renderButton(
+            document.getElementById('google-signin-button'),
+            { 
+              theme: 'outline', 
+              size: 'large', 
+              width: '100%', 
+              text: 'continue_with',
+              logo_alignment: 'center'
+            }
+          )
+        } catch (err) {
+          console.error('Error initializing Google Sign-In:', err)
+        }
+      }
+    }
+
     // Define the callback function for Google OAuth
-    window.handleGoogleCallback = async (response) => {
+    const handleGoogleCallback = async (response) => {
       setGoogleLoading(true)
+      setError(null)
+      
       try {
         // Send the ID token to your backend
         const result = await fetch(`${API_URL}/auth/google`, {
@@ -30,16 +77,14 @@ export default function AuthForm({ mode = 'login', setUser }) {
           headers: {
             'Content-Type': 'application/json'
           },
-          credentials: 'include', // Important for CORS with cookies
           body: JSON.stringify({ credential: response.credential })
         })
 
-        if (!result.ok) {
-          const errorData = await result.json();
-          throw new Error(errorData.message || 'Google authentication failed');
-        }
-
         const data = await result.json()
+        
+        if (!result.ok) {
+          throw new Error(data.message || 'Google authentication failed')
+        }
 
         // Store token and user data
         localStorage.setItem('authToken', data.token)
@@ -57,44 +102,15 @@ export default function AuthForm({ mode = 'login', setUser }) {
       }
     }
 
-    // Load Google Identity Services script
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    document.body.appendChild(script)
-
-    // Initialize Google Sign-In when script is loaded
-    script.onload = () => {
-      if (window.google) {
-        window.google.accounts.id.initialize({
-          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-          callback: window.handleGoogleCallback,
-          auto_select: false,
-          cancel_on_tap_outside: true,
-          context: 'signin' // Add this to specify it's for sign-in
-        })
-        
-        // Display the Google Sign-In button
-        window.google.accounts.id.renderButton(
-          document.getElementById('google-signin-button'),
-          { 
-            theme: 'outline', 
-            size: 'large', 
-            width: '100%', 
-            text: 'continue_with',
-            logo_alignment: 'center'
-          }
-        )
-      }
-    }
+    // Attach the callback to window for Google to access
+    window.handleGoogleCallback = handleGoogleCallback
+    
+    // Load Google scripts
+    loadGoogleScript()
 
     return () => {
       // Clean up
       delete window.handleGoogleCallback
-      if (document.body.contains(script)) {
-        document.body.removeChild(script)
-      }
     }
   }, [navigate, setUser])
 
@@ -110,16 +126,14 @@ export default function AuthForm({ mode = 'login', setUser }) {
         headers: {
           'Content-Type': 'application/json'
         },
-        credentials: 'include', // Important for CORS with cookies
         body: JSON.stringify(formData),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Authentication failed');
-      }
-
       const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Authentication failed')
+      }
 
       localStorage.setItem('authToken', data.token)
       localStorage.setItem('userData', JSON.stringify(data.user))
