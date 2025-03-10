@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import pkg from 'pg'
 import { generateResponse } from './script.js'
+import { OAuth2Client } from 'google-auth-library'
 
 dotenv.config()
 
@@ -19,6 +20,9 @@ const { Pool } = pkg
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 })
+
+// Initialize Google OAuth client
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
 
 app.use(express.json())
 
@@ -88,6 +92,68 @@ app.post('/auth/login', async (req, res) => {
     res.status(500).json({ message: 'Error logging in' })
   }
 })
+
+// Google Auth route
+app.post('/auth/google', async (req, res) => {
+  try {
+    const { credential } = req.body;
+    
+    // Verify the Google token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    
+    const payload = ticket.getPayload();
+    const { email, name, sub: googleId, picture } = payload;
+    
+    // Check if user exists in database
+    let result = await pool.query('SELECT * FROM users WHERE google_id = $1 OR email = $2', [googleId, email]);
+    let user;
+    
+    if (result.rows.length === 0) {
+      // Create a new user
+      const username = email.split('@')[0]; // Generate username from email
+      
+      // Add user to database
+      const insertResult = await pool.query(
+        'INSERT INTO users (username, email, google_id, profile_picture, is_oauth_user) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, email',
+        [name || username, email, googleId, picture, true]
+      );
+      
+      user = insertResult.rows[0];
+    } else {
+      // Update existing user if needed
+      user = result.rows[0];
+      
+      // If user exists but doesn't have google_id (signed up with email before)
+      if (!user.google_id) {
+        await pool.query(
+          'UPDATE users SET google_id = $1, profile_picture = $2, is_oauth_user = $3 WHERE id = $4',
+          [googleId, picture, true, user.id]
+        );
+      }
+    }
+    
+    // Generate JWT token
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    
+    // Send back token and user info
+    res.json({ 
+      token, 
+      user: { 
+        id: user.id, 
+        username: user.username, 
+        email: user.email,
+        profilePicture: user.profile_picture
+      } 
+    });
+    
+  } catch (error) {
+    console.error('Google auth error:', error);
+    res.status(500).json({ message: 'Error with Google authentication' });
+  }
+});
 
 // New route for token verification
 app.get('/auth/verify', authenticateToken, async (req, res) => {

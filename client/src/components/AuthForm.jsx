@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Eye, EyeOff, Lock, Mail, User } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
@@ -16,6 +16,74 @@ export default function AuthForm({ mode = 'login', setUser }) {
   })
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+
+  // Initialize Google OAuth on component mount
+  useEffect(() => {
+    // Define the callback function for Google OAuth
+    window.handleGoogleCallback = async (response) => {
+      setGoogleLoading(true)
+      try {
+        // Send the ID token to your backend
+        const result = await fetch(`${API_URL}/auth/google`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ credential: response.credential })
+        })
+
+        const data = await result.json()
+
+        if (!result.ok) {
+          throw new Error(data.message || 'Google authentication failed')
+        }
+
+        // Store token and user data
+        localStorage.setItem('authToken', data.token)
+        if (setUser) {
+          setUser(data.user)
+        }
+        navigate('/')
+      } catch (err) {
+        console.error('Google authentication error:', err)
+        setError(err.message || 'An unexpected error occurred with Google Sign-In.')
+      } finally {
+        setGoogleLoading(false)
+      }
+    }
+
+    // Load Google Identity Services script
+    const script = document.createElement('script')
+    script.src = 'https://accounts.google.com/gsi/client'
+    script.async = true
+    script.defer = true
+    document.body.appendChild(script)
+
+    // Initialize Google Sign-In when script is loaded
+    script.onload = () => {
+      if (window.google) {
+        window.google.accounts.id.initialize({
+          client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+          callback: window.handleGoogleCallback,
+          auto_select: false,
+          cancel_on_tap_outside: true
+        })
+        
+        // Display the Google Sign-In button
+        window.google.accounts.id.renderButton(
+          document.getElementById('google-signin-button'),
+          { theme: 'outline', size: 'large', width: '100%', text: 'continue_with' }
+        )
+      }
+    }
+
+    return () => {
+      // Clean up
+      delete window.handleGoogleCallback
+      document.body.removeChild(script)
+    }
+  }, [navigate, setUser])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -137,6 +205,26 @@ export default function AuthForm({ mode = 'login', setUser }) {
               {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
             </button>
           </form>
+
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500">Or continue with</span>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <div 
+                id="google-signin-button" 
+                className={`flex justify-center ${googleLoading ? 'opacity-50' : ''}`}
+              >
+                {/* Google Sign-In button will be rendered here */}
+              </div>
+            </div>
+          </div>
 
           <div className="mt-6 text-center">
             <button
