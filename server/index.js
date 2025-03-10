@@ -11,10 +11,16 @@ dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 3000
+//CORS configuration
 app.use(cors({
-  origin: ['https://quiz-app-kappa-peach.vercel.app','https://quiz-aua9jskcb-anaymehras-projects.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
-  credentials: true
+  origin: ['https://quiz-app-kappa-peach.vercel.app', 'https://quiz-aua9jskcb-anaymehras-projects.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// For preflight requests
+app.options('*', cors());
 // PostgreSQL connection
 const { Pool } = pkg
 const pool = new Pool({
@@ -98,6 +104,10 @@ app.post('/auth/google', async (req, res) => {
   try {
     const { credential } = req.body;
     
+    if (!credential) {
+      return res.status(400).json({ message: 'Missing Google credential' });
+    }
+    
     // Verify the Google token
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
@@ -105,6 +115,11 @@ app.post('/auth/google', async (req, res) => {
     });
     
     const payload = ticket.getPayload();
+    
+    if (!payload) {
+      return res.status(400).json({ message: 'Invalid Google token' });
+    }
+    
     const { email, name, sub: googleId, picture } = payload;
     
     // Check if user exists in database
@@ -113,25 +128,35 @@ app.post('/auth/google', async (req, res) => {
     
     if (result.rows.length === 0) {
       // Create a new user
-      const username = email.split('@')[0]; // Generate username from email
+      const username = name || email.split('@')[0]; // Generate username from name or email
       
-      // Add user to database
-      const insertResult = await pool.query(
-        'INSERT INTO users (username, email, google_id, profile_picture, is_oauth_user) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, email',
-        [name || username, email, googleId, picture, true]
-      );
-      
-      user = insertResult.rows[0];
+      try {
+        // Add user to database
+        const insertResult = await pool.query(
+          'INSERT INTO users (username, email, google_id, profile_picture, is_oauth_user) VALUES ($1, $2, $3, $4, $5) RETURNING id, username, email, profile_picture',
+          [username, email, googleId, picture, true]
+        );
+        
+        user = insertResult.rows[0];
+      } catch (dbError) {
+        console.error('Database error during user creation:', dbError);
+        return res.status(500).json({ message: 'Error creating user account' });
+      }
     } else {
-      // Update existing user if needed
+      // Use existing user
       user = result.rows[0];
       
       // If user exists but doesn't have google_id (signed up with email before)
       if (!user.google_id) {
-        await pool.query(
-          'UPDATE users SET google_id = $1, profile_picture = $2, is_oauth_user = $3 WHERE id = $4',
-          [googleId, picture, true, user.id]
-        );
+        try {
+          await pool.query(
+            'UPDATE users SET google_id = $1, profile_picture = $2, is_oauth_user = $3 WHERE id = $4',
+            [googleId, picture, true, user.id]
+          );
+        } catch (dbError) {
+          console.error('Database error updating user:', dbError);
+          // Continue anyway since we have the user
+        }
       }
     }
     
@@ -145,7 +170,7 @@ app.post('/auth/google', async (req, res) => {
         id: user.id, 
         username: user.username, 
         email: user.email,
-        profilePicture: user.profile_picture
+        profilePicture: user.profile_picture || picture
       } 
     });
     

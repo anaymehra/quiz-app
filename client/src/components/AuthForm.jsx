@@ -30,17 +30,21 @@ export default function AuthForm({ mode = 'login', setUser }) {
           headers: {
             'Content-Type': 'application/json'
           },
+          credentials: 'include', // Important for CORS with cookies
           body: JSON.stringify({ credential: response.credential })
         })
 
-        const data = await result.json()
-
         if (!result.ok) {
-          throw new Error(data.message || 'Google authentication failed')
+          const errorData = await result.json();
+          throw new Error(errorData.message || 'Google authentication failed');
         }
+
+        const data = await result.json()
 
         // Store token and user data
         localStorage.setItem('authToken', data.token)
+        localStorage.setItem('userData', JSON.stringify(data.user))
+        
         if (setUser) {
           setUser(data.user)
         }
@@ -67,13 +71,20 @@ export default function AuthForm({ mode = 'login', setUser }) {
           client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
           callback: window.handleGoogleCallback,
           auto_select: false,
-          cancel_on_tap_outside: true
+          cancel_on_tap_outside: true,
+          context: 'signin' // Add this to specify it's for sign-in
         })
         
         // Display the Google Sign-In button
         window.google.accounts.id.renderButton(
           document.getElementById('google-signin-button'),
-          { theme: 'outline', size: 'large', width: '100%', text: 'continue_with' }
+          { 
+            theme: 'outline', 
+            size: 'large', 
+            width: '100%', 
+            text: 'continue_with',
+            logo_alignment: 'center'
+          }
         )
       }
     }
@@ -81,7 +92,9 @@ export default function AuthForm({ mode = 'login', setUser }) {
     return () => {
       // Clean up
       delete window.handleGoogleCallback
-      document.body.removeChild(script)
+      if (document.body.contains(script)) {
+        document.body.removeChild(script)
+      }
     }
   }, [navigate, setUser])
 
@@ -97,16 +110,20 @@ export default function AuthForm({ mode = 'login', setUser }) {
         headers: {
           'Content-Type': 'application/json'
         },
+        credentials: 'include', // Important for CORS with cookies
         body: JSON.stringify(formData),
       })
 
-      const data = await response.json()
-
       if (!response.ok) {
-        throw new Error(data.message || 'Authentication failed')
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Authentication failed');
       }
 
+      const data = await response.json()
+
       localStorage.setItem('authToken', data.token)
+      localStorage.setItem('userData', JSON.stringify(data.user))
+      
       if (setUser) {
         setUser(data.user)
       }
