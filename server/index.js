@@ -11,7 +11,7 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 3000
 app.use(cors({
-  origin: ['https://quiz-app-kappa-peach.vercel.app','https://quiz-aua9jskcb-anaymehras-projects.vercel.app', 'http://localhost:3000'],
+  origin: ['https://quiz-app-kappa-peach.vercel.app','https://quiz-aua9jskcb-anaymehras-projects.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
   credentials: true
 }));
 // PostgreSQL connection
@@ -56,7 +56,7 @@ app.post('/auth/register', async (req, res) => {
     res.status(201).json({ token })
   } catch (error) {
     console.error('Error creating user:', error)
-    res.status(500).json({ message: 'Error creating user' })
+    res.status(500).json({ message: 'User already exists.' })
   }
 })
 
