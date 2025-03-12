@@ -5,30 +5,24 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import pkg from 'pg'
 import { generateResponse } from './script.js'
-import { OAuth2Client } from 'google-auth-library'
+import passport from 'passport'
+import session from 'express-session'
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
+
 
 dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 3000
-//CORS configuration
 app.use(cors({
-  origin: ['https://quiz-app-kappa-peach.vercel.app', 'https://quiz-aua9jskcb-anaymehras-projects.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: ['https://quiz-app-kappa-peach.vercel.app','https://quiz-aua9jskcb-anaymehras-projects.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
+  credentials: true
 }));
-
-// For preflight requests
-app.options('*', cors());
 // PostgreSQL connection
 const { Pool } = pkg
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 })
-
-// Initialize Google OAuth client
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
 
 app.use(express.json())
 
@@ -98,172 +92,6 @@ app.post('/auth/login', async (req, res) => {
     res.status(500).json({ message: 'Error logging in' })
   }
 })
-
-// Google Auth route
-app.post('/auth/google', async (req, res) => {
-  try {
-    const { credential } = req.body;
-    
-    if (!credential) {
-      return res.status(400).json({ message: 'Missing Google credential' });
-    }
-    
-    // Verify the Google token
-    const ticket = await googleClient.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID
-    });
-    
-    const payload = ticket.getPayload();
-    
-    if (!payload) {
-      return res.status(400).json({ message: 'Invalid Google token' });
-    }
-    
-    const { email, name, sub: googleId, picture } = payload;
-    
-    // Check if user exists in database
-    let result = await pool.query('SELECT * FROM users WHERE google_id = $1 OR email = $2', [googleId, email]);
-    let user;
-    
-    if (result.rows.length === 0) {
-      // Create a new user
-      const username = name || email.split('@')[0]; // Generate username from name or email
-      
-      try {
-        // Add user to database with error handling
-        console.log('Creating new user with Google auth:', { username, email, googleId });
-        
-        // Check if users table has the expected columns
-        const tableInfo = await pool.query(`
-          SELECT column_name 
-          FROM information_schema.columns 
-          WHERE table_name = 'users'
-        `);
-        
-        const columns = tableInfo.rows.map(row => row.column_name);
-        console.log('Available columns in users table:', columns);
-        
-        // Create query based on available columns
-        let query = 'INSERT INTO users (username, email';
-        let valuesList = [username, email];
-        let placeholders = '$1, $2';
-        let index = 3;
-        
-        if (columns.includes('google_id')) {
-          query += ', google_id';
-          valuesList.push(googleId);
-          placeholders += `, $${index}`;
-          index++;
-        }
-        
-        if (columns.includes('profile_picture')) {
-          query += ', profile_picture';
-          valuesList.push(picture);
-          placeholders += `, $${index}`;
-          index++;
-        }
-        
-        if (columns.includes('is_oauth_user')) {
-          query += ', is_oauth_user';
-          valuesList.push(true);
-          placeholders += `, $${index}`;
-          index++;
-        }
-        
-        query += ') VALUES (' + placeholders + ') RETURNING id, username, email';
-        
-        if (columns.includes('profile_picture')) {
-          query += ', profile_picture';
-        }
-        
-        console.log('Executing query:', query);
-        
-        const insertResult = await pool.query(query, valuesList);
-        user = insertResult.rows[0];
-        console.log('User created successfully:', user);
-      } catch (dbError) {
-        console.error('Database error during user creation:', dbError);
-        
-        // Check if it's a duplicate key violation (user already exists)
-        if (dbError.code === '23505') { // PostgreSQL unique constraint violation code
-          // Try to fetch existing user again
-          const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-          if (existingUser.rows.length > 0) {
-            user = existingUser.rows[0];
-            console.log('Found existing user after constraint violation:', user);
-          } else {
-            return res.status(500).json({ message: 'Error creating user - email already exists but cannot retrieve user' });
-          }
-        } else {
-          return res.status(500).json({ 
-            message: 'Error creating user account',
-            details: dbError.message
-          });
-        }
-      }
-    } else {
-      // Use existing user
-      user = result.rows[0];
-      console.log('Using existing user from database:', user);
-      
-      // If user exists but doesn't have google_id (signed up with email before)
-      if (!user.google_id) {
-        try {
-          console.log('Updating existing user with Google info');
-          const updateFields = ['google_id = $1'];
-          const updateValues = [googleId];
-          let valueIndex = 2;
-          
-          if (user.profile_picture === null && picture) {
-            updateFields.push(`profile_picture = $${valueIndex}`);
-            updateValues.push(picture);
-            valueIndex++;
-          }
-          
-          updateFields.push(`is_oauth_user = $${valueIndex}`);
-          updateValues.push(true);
-          valueIndex++;
-          
-          updateValues.push(user.id);
-          
-          const updateQuery = `
-            UPDATE users 
-            SET ${updateFields.join(', ')} 
-            WHERE id = $${valueIndex-1}
-          `;
-          
-          console.log('Executing update query:', updateQuery);
-          await pool.query(updateQuery, updateValues);
-        } catch (dbError) {
-          console.error('Database error updating user with Google info:', dbError);
-          // Continue anyway since we have the user
-        }
-      }
-    }
-    
-    // Generate JWT token
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '24h' });
-    
-    // Send back token and user info
-    res.json({ 
-      token, 
-      user: { 
-        id: user.id, 
-        username: user.username, 
-        email: user.email,
-        profilePicture: user.profile_picture || picture
-      } 
-    });
-    
-  } catch (error) {
-    console.error('Google auth error:', error);
-    res.status(500).json({ 
-      message: 'Error with Google authentication', 
-      details: error.message 
-    });
-  }
-});
 
 // New route for token verification
 app.get('/auth/verify', authenticateToken, async (req, res) => {
