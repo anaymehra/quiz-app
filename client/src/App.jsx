@@ -162,7 +162,7 @@ export default function App() {
         <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-br from-purple-100/30 to-transparent rounded-full blur-3xl animate-blob animation-delay-2000"></div>
         <div className="absolute top-1/2 left-1/2 w-full h-full bg-gradient-to-br from-pink-100/20 to-transparent rounded-full blur-3xl animate-blob animation-delay-4000"></div>
       </div>
-      {user && <Sidebar user={user} />}
+      <Sidebar user={user} />
 
       <div className="flex-1 flex flex-col overflow-hidden relative pt-16">
         <Routes>

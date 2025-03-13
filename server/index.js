@@ -155,13 +155,11 @@ app.get('/auth/google/callback', passport.authenticate('google', { failureRedire
   res.redirect(`https://quiz-app-kappa-peach.vercel.app?token=${token}`);
 });
 
-app.get('/auth/logout', (req, res, next) => {
-  req.session.destroy((err) => {
-    if (err) return next(err);
-    res.redirect('https://quiz-app-kappa-peach.vercel.app');
-  });
-});
+app.get('/auth/logout', (req, res) => {
+  req.logout();
+  res.redirect('/');
 
+});
 
 
 
