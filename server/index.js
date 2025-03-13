@@ -17,14 +17,18 @@ app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: true,
-  cookie: { secure: true }
+  cookie: { secure: process.env.NODE_ENV === "production" }
 }));
 
 
 app.use(cors({
-  origin: ['https://quiz-app-kappa-peach.vercel.app', 'https://quiz-aua9jskcb-anaymehras-projects.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
-  credentials: true
+  origin: ['https://quiz-app-kappa-peach.vercel.app'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization'],  // Explicitly allow these headers
+  methods: ['GET', 'POST', 'PUT', 'DELETE']
 }));
+
+
 // PostgreSQL connection
 const { Pool } = pkg
 const pool = new Pool({
@@ -36,7 +40,7 @@ app.use(express.json())
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: "/auth/google/callback",
+  callbackURL: "https://quiz-app-os4m.onrender.com/auth/google/callback",
 },
   async (accessToken, refreshToken, profile, done) => {
     try {
