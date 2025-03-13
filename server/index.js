@@ -5,17 +5,24 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import pkg from 'pg'
 import { generateResponse } from './script.js'
-import passport from 'passport'
-import session from 'express-session'
-import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
-
+import session from 'express-session';
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 
 dotenv.config()
-
 const app = express()
 const PORT = process.env.PORT || 3000
+
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: true }
+}));
+
+
 app.use(cors({
-  origin: ['https://quiz-app-kappa-peach.vercel.app','https://quiz-aua9jskcb-anaymehras-projects.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
+  origin: ['https://quiz-app-kappa-peach.vercel.app', 'https://quiz-aua9jskcb-anaymehras-projects.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
   credentials: true
 }));
 // PostgreSQL connection
@@ -25,6 +32,49 @@ const pool = new Pool({
 })
 
 app.use(express.json())
+
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: "/auth/google/callback",
+},
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+      const { id, displayName, emails, photos } = profile;
+      const email = emails[0].value;
+      const profilePicture = photos[0].value;
+
+      let user = await pool.query('SELECT * FROM users WHERE google_id = $1 OR email = $2', [id, email]);
+
+      if (user.rows.length === 0) {
+        const newUser = await pool.query(
+          'INSERT INTO users (username, email, google_id, profile_picture, is_oauth_user) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+          [displayName, email, id, profilePicture, true]
+        );
+        user = newUser;
+      }
+
+      return done(null, user.rows[0]);
+    } catch (error) {
+      return done(error, null);
+    }
+  }));
+
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    done(null, user.rows[0]);
+  } catch (error) {
+    done(error, null);
+  }
+});
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 
 // Middleware to verify JWT token
@@ -73,7 +123,7 @@ app.post('/auth/login', async (req, res) => {
 
     if (result.rows.length === 0) {
       console.log('No user found with email:', email)
-      return res.status(401).json({ message: 'No user found with email: ',email })
+      return res.status(401).json({ message: 'No user found with email: ', email })
     }
 
     const user = result.rows[0]
@@ -92,6 +142,22 @@ app.post('/auth/login', async (req, res) => {
     res.status(500).json({ message: 'Error logging in' })
   }
 })
+
+//Google Auth
+app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/' }), (req, res) => {
+  const token = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+  res.redirect(`https://quiz-app-kappa-peach.vercel.app?token=${token}`);
+});
+
+app.get('/auth/logout', (req, res) => {
+  req.logout();
+  res.redirect('/');
+
+});
+
+
 
 // New route for token verification
 app.get('/auth/verify', authenticateToken, async (req, res) => {
@@ -240,10 +306,10 @@ app.post('/flashcards/generate', authenticateToken, async (req, res) => {
     Please respond only with the JSON data and nothing else.`
 
     const response = await generateResponse(prompt)
-    
+
     // Remove any potential markdown code block syntax and trim whitespace
     const cleanedResponse = response.replace(/```json\s?|```/g, '').trim()
-    
+
     // Parse the cleaned JSON
     const flashcards = JSON.parse(cleanedResponse)
 
