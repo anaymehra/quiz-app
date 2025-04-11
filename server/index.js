@@ -20,6 +20,10 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 })
 
+pool.connect()
+  .then(() => console.log('Connected to PostgreSQL successfully'))
+  .catch(err => console.error('Connection error:', err));
+
 app.use(express.json())
 
 
